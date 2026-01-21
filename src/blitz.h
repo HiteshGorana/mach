@@ -25,7 +25,7 @@
 #include <string.h>
 #include <time.h>
 
-#define VERSION "1.1.0"
+#define VERSION "1.1.1"
 #define MAX_URLS 1024
 #define MAX_HEADERS 64
 
