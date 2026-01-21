@@ -61,17 +61,35 @@ if [ -z "$LATEST" ]; then
     exit 1
 fi
 
-echo "   Downloading: $LATEST"
+# Ensure install directory exists and is actually a directory
+if [ -e "$INSTALL_DIR" ] && [ ! -d "$INSTALL_DIR" ]; then
+    echo "❌ $INSTALL_DIR exists but is not a directory. Please remove it and try again."
+    exit 1
+fi
 
-# Create install dir if needed
 mkdir -p "$INSTALL_DIR"
 
-# Download and install
+if [ ! -w "$INSTALL_DIR" ]; then
+    echo "❌ Cannot write to $INSTALL_DIR. Check your permissions."
+    exit 1
+fi
+
+echo "   Downloading: $FILENAME"
+
+# Download to a temporary file first
+TMP_FILE=$(mktemp "/tmp/mach.XXXXXX")
+if ! curl -fsSL "$LATEST" -o "$TMP_FILE"; then
+    echo "❌ Download failed."
+    rm -f "$TMP_FILE"
+    exit 1
+fi
+
+# Install
 if [ "$PLATFORM" = "windows" ]; then
-    curl -fsSL "$LATEST" -o "$INSTALL_DIR/mach.exe"
+    mv "$TMP_FILE" "$INSTALL_DIR/mach.exe"
     echo "✅ Installed to $INSTALL_DIR/mach.exe"
 else
-    curl -fsSL "$LATEST" -o "$INSTALL_DIR/mach"
+    mv "$TMP_FILE" "$INSTALL_DIR/mach"
     chmod +x "$INSTALL_DIR/mach"
     echo "✅ Installed to $INSTALL_DIR/mach"
 fi
