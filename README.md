@@ -15,6 +15,20 @@
 - 📊 **Rich Stats** – P50, P95, P99 latencies + status codes
 - 🖥️ **Interactive Dashboard** – Navigate test history with arrow keys
 
+## Install
+
+**One-liner (Linux/macOS):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/HiteshGorana/mach/main/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/HiteshGorana/mach/main/install.ps1 | iex
+```
+
+**Or download from [Releases](https://github.com/HiteshGorana/mach/releases)**
+
 ## Quick Start
 
 ```bash

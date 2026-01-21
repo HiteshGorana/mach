@@ -1,16 +1,25 @@
 #ifndef BLITZ_H
 #define BLITZ_H
 
+// Platform-specific includes
+#ifdef _WIN32
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <pthread.h>
+#include <unistd.h>
+#endif
+
 #include <openssl/err.h>
 #include <openssl/ssl.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #define VERSION "1.0.0"
 #define MAX_URLS 1024
