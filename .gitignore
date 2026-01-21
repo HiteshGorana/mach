@@ -1,0 +1,41 @@
+# Build artifacts
+*.o
+mach
+mach.exe
+blitz
+blitz-c
+blitz.exe
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*.so
+*.so.*
+
+# Go (for legacy files)
+go.sum
+/bin/
+/vendor/
+
+# Test history
+.mach/
+.blitz/
+
+# Debug
+*.dSYM/
+*.pdb

@@ -1,0 +1,99 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+            asm: fast_stats_x86.s
+          - os: macos-13
+            name: macos-x86_64
+            asm: fast_stats_x86.s
+          - os: macos-latest
+            name: macos-arm64
+            asm: fast_stats_arm64.s
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
+
+      - name: Build
+        run: |
+          make clean
+          make
+          mv mach mach-${{ matrix.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mach-${{ matrix.name }}
+          path: mach-${{ matrix.name }}
+
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-openssl make
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          make clean
+          make
+          mv mach.exe mach-windows-x86_64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mach-windows-x86_64
+          path: mach-windows-x86_64.exe
+
+  release:
+    needs: [build, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/mach-linux-x86_64/mach-linux-x86_64
+            release/mach-macos-x86_64/mach-macos-x86_64
+            release/mach-macos-arm64/mach-macos-arm64
+            release/mach-windows-x86_64/mach-windows-x86_64.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
