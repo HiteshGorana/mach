@@ -19,8 +19,9 @@
 | 🛡️ **HTTPS Support** | OpenSSL 3 integration |
 | 📊 **Rich Stats** | P50, P95, P99 latencies + status codes |
 | 🖥️ **Interactive Dashboard** | Navigate test history with arrow keys |
-| ⏱️ **Duration Attacks** | Run tests for a specific time period |
 | 📋 **Test Profiles** | Smoke, stress, and soak presets |
+| 📉 **Regression Testing** | Before/After comparison with tags |
+| 🛡️ **Perf Gates** | Build-breaking regression thresholds |
 
 ---
 
@@ -87,6 +88,28 @@ mach -n 10000 -c 500 --insecure https://stage.api.com
 mach -r 50 -d 30s https://api.example.com
 ```
 
+### Regression Testing (Before/After)
+Track performance improvements or regressions across code changes.
+
+```bash
+# 1. Capture baseline (before optimization)
+mach --tag perf-fix --before -n 1000 http://api.com
+
+# 2. Capture target (after optimization)
+mach --tag perf-fix --after -n 1000 http://api.com
+
+# 3. View comparison table
+mach --tag perf-fix --result
+```
+
+### CI Performance Gate
+Automatically fail CI/CD pipelines if performance regresses beyond a threshold.
+
+```bash
+# Fail if avg latency regresses by more than 5%
+mach --tag release-1.1 --after --threshold 5 -n 1000 http://api.com
+```
+
 ### Testing Multiple URLs
 Create a `urls.txt`:
 ```
@@ -125,6 +148,11 @@ Options:
   -h STR      Add header (e.g., "Authorization:Bearer token")
   -b STR      Request body
   --insecure  Skip TLS verification
+  --tag STR   Tag name for comparison
+  --before    Set as baseline for tag
+  --after     Set as target for tag comparison
+  --result    Show comparison result for tag
+  --threshold INT Max allowed regression %
 ```
 
 ---
