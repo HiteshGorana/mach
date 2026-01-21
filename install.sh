@@ -5,7 +5,7 @@
 set -e
 
 REPO="HiteshGorana/mach"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.mach/bin"
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
