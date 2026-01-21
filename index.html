@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/mach/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mach ⚡ Ultra-fast HTTP Load Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/mach/assets/index-DWF_T8WN.js"></script>
+    <link rel="stylesheet" crossorigin href="/mach/assets/index-Deg8rxnX.css">
+  </head>
+  <body>
+    <div id="app">
+      <!-- Navbar -->
+      <nav class="navbar">
+        <div class="container">
+          <div class="logo">Mach ⚡</div>
+          <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#performance">ASM</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/HiteshGorana/mach" class="btn-github">GitHub</a>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <header class="hero">
+        <div class="container">
+          <div class="hero-content">
+            <h1 class="glitch-text">Speed Without Limits</h1>
+            <p class="hero-subtitle">Ultra-fast HTTP load tester written in C with hand-optimized Assembly.</p>
+            <div class="hero-cta">
+              <div class="terminal-snippet">
+                <span class="prompt">$</span> mach -n 1000 -c 50 http://example.com
+                <button class="copy-btn" id="copy-btn">📋</button>
+              </div>
+            </div>
+            <div class="hero-stats">
+              <div class="stat-item">
+                <span class="stat-value">~52 KB</span>
+                <span class="stat-label">Binary Size</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">Hand-written</span>
+                <span class="stat-label">ASM Core</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">Native</span>
+                <span class="stat-label">Cross-Platform</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Features Section -->
+      <section id="features" class="features">
+        <div class="container">
+          <h2 class="section-title">Engineered for Performance</h2>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-icon">🚀</div>
+              <h3>Raw Power</h3>
+              <p>Direct POSIX sockets and pthread worker pool for maximum throughput with minimal latency overhead.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🛡️</div>
+              <h3>Modern HTTPS</h3>
+              <p>Full support for TLS via OpenSSL 3, ensuring your secure endpoints are tested under real conditions.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📊</div>
+              <h3>Deep Insights</h3>
+              <p>High-resolution timing with P50, P95, and P99 latency percentiles to find those elusive tail issues.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📉</div>
+              <h3>Regression Gates</h3>
+              <p>Before/After comparison suite with automated threshold gates. Perfect for CI performance monitoring.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ASM Section -->
+      <section id="performance" class="performance">
+        <div class="container">
+          <div class="split-view">
+            <div class="text-content">
+              <h2 class="section-title">Wait, Assembly?</h2>
+              <p>Compilers are great, but for the hottest paths in performance benchmarking, predictability is everything. Mach uses hand-written SIMD instructions to ensure every cycle counts.</p>
+              <ul class="asm-list">
+                <li><strong>ARM64:</strong> NEON <code>fadd</code>, <code>fmin</code>, <code>fmax</code> vectorization.</li>
+                <li><strong>x86_64:</strong> SSE2 <code>addpd</code>, <code>minpd</code>, <code>maxpd</code> optimization.</li>
+              </ul>
+            </div>
+            <div class="code-preview">
+              <div class="code-header">fast_stats_arm64.s</div>
+              <pre><code>fadd  v0.2d, v0.2d, v2.2d
+fadd  v1.2d, v1.2d, v3.2d
+fadd  v0.2d, v0.2d, v1.2d
+faddp d0, v0.2d</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Install Section -->
+      <section id="install" class="install">
+        <div class="container">
+          <div class="install-box">
+            <h2>Get Started</h2>
+            <p>Native binaries. Zero dependencies. Ready to go.</p>
+            <div class="install-tabs">
+              <div class="tab-content" id="linux-mac">
+                <pre><code>git clone https://github.com/HiteshGorana/mach.git
+cd mach && sh scripts/install.sh</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="container">
+          <p>MIT © 2024 Hitesh Gorana. Built with ⚡ Speed.</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
