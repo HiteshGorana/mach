@@ -19,4 +19,7 @@ void http_close(Connection *conn);
 Result http_send(Connection *conn, const char *url, const char *method,
                  Header *headers, int header_count, const char *body);
 
+char *http_fetch_body(const char *url, int insecure);
+int http_download_to_file(const char *url, const char *path, int insecure);
+
 #endif

@@ -177,3 +177,125 @@ Result http_send(Connection *conn, const char *url_str, const char *method,
 
   return res;
 }
+
+char *http_fetch_body(const char *url, int insecure) {
+  struct timespec timeout = {5, 0};
+  Connection *conn = http_connect(url, insecure, timeout);
+  if (!conn)
+    return NULL;
+
+  char host[256], path[1024];
+  if (sscanf(url, "%*[^ : ]://%255[^:/]:%*d%1023s", host, path) != 2) {
+    if (sscanf(url, "%*[^ : ]://%255[^:/]%1023s", host, path) != 2) {
+      if (sscanf(url, "%*[^ : ]://%255[^:/]", host) == 1) {
+        strcpy(path, "/");
+      }
+    }
+  }
+
+  char request[1024];
+  int len = snprintf(request, sizeof(request),
+                     "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: "
+                     "close\r\nUser-Agent: Mach/1.0\r\n\r\n",
+                     path, host);
+
+  if (conn->is_https) {
+    SSL_write(conn->ssl, request, len);
+  } else {
+    write(conn->socket, request, len);
+  }
+
+  char *buffer = malloc(65536);
+  int total_read = 0;
+  int bytes_read;
+  while (1) {
+    if (conn->is_https) {
+      bytes_read =
+          SSL_read(conn->ssl, buffer + total_read, 65536 - total_read - 1);
+    } else {
+      bytes_read =
+          read(conn->socket, buffer + total_read, 65536 - total_read - 1);
+    }
+    if (bytes_read <= 0)
+      break;
+    total_read += bytes_read;
+    if (total_read >= 65535)
+      break;
+  }
+  buffer[total_read] = '\0';
+  http_close(conn);
+
+  // Skip headers to find body
+  char *body = strstr(buffer, "\r\n\r\n");
+  if (body) {
+    char *result = strdup(body + 4);
+    free(buffer);
+    return result;
+  }
+
+  free(buffer);
+  return NULL;
+}
+
+int http_download_to_file(const char *url, const char *path_to_save,
+                          int insecure) {
+  struct timespec timeout = {30, 0};
+  Connection *conn = http_connect(url, insecure, timeout);
+  if (!conn)
+    return -1;
+
+  char host[256], path[1024];
+  if (sscanf(url, "%*[^ : ]://%255[^:/]:%*d%1023s", host, path) != 2) {
+    if (sscanf(url, "%*[^ : ]://%255[^:/]%1023s", host, path) != 2) {
+      if (sscanf(url, "%*[^ : ]://%255[^:/]", host) == 1) {
+        strcpy(path, "/");
+      }
+    }
+  }
+
+  char request[1024];
+  int len = snprintf(request, sizeof(request),
+                     "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: "
+                     "close\r\nUser-Agent: Mach/1.0\r\n\r\n",
+                     path, host);
+
+  if (conn->is_https) {
+    SSL_write(conn->ssl, request, len);
+  } else {
+    write(conn->socket, request, len);
+  }
+
+  FILE *fp = fopen(path_to_save, "wb");
+  if (!fp) {
+    http_close(conn);
+    return -1;
+  }
+
+  char buffer[8192];
+  int bytes_read;
+  int header_skipped = 0;
+  while (1) {
+    if (conn->is_https) {
+      bytes_read = SSL_read(conn->ssl, buffer, sizeof(buffer));
+    } else {
+      bytes_read = read(conn->socket, buffer, sizeof(buffer));
+    }
+    if (bytes_read <= 0)
+      break;
+
+    if (!header_skipped) {
+      char *body = strstr(buffer, "\r\n\r\n");
+      if (body) {
+        int header_len = (body + 4) - buffer;
+        fwrite(body + 4, 1, bytes_read - header_len, fp);
+        header_skipped = 1;
+      }
+    } else {
+      fwrite(buffer, 1, bytes_read, fp);
+    }
+  }
+
+  fclose(fp);
+  http_close(conn);
+  return 0;
+}

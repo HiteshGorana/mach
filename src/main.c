@@ -4,6 +4,7 @@
 #include "stats.h"
 #include "storage.h"
 #include "ui.h"
+#include "updater.h"
 #include <getopt.h>
 
 void print_usage() {
@@ -13,6 +14,7 @@ void print_usage() {
   printf("  attack      Full-featured load test\n");
   printf("  dashboard   View historical test runs\n");
   printf("  history     history clear, history list\n");
+  printf("  update      Update Mach to the latest version\n");
   printf("  examples    Show comprehensive usage examples\n");
   printf("  version     Show version information\n");
   printf("\nOptions:\n");
@@ -77,6 +79,13 @@ int main(int argc, char *argv[]) {
 
   if (strcmp(argv[1], "examples") == 0) {
     ui_examples();
+    return 0;
+  }
+
+  if (argc > 1 && strcmp(argv[1], "update") == 0) {
+    http_init_openssl();
+    updater_run();
+    http_cleanup_openssl();
     return 0;
   }
 
