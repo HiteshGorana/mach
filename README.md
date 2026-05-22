@@ -145,7 +145,7 @@ Options:
   -n INT      Total requests (default 100)
   -d STR      Run duration (e.g., 30s, 1m, 5m)
   -c INT      Concurrent workers (default 10)
-  -r INT      Requests per second limit
+  -r INT      Aggregate requests-per-second limit
   -p STR      Test profile (smoke, stress, soak)
   -m STR      HTTP method (default GET)
   -h STR      Add header (e.g., "Authorization:Bearer token")
@@ -155,7 +155,7 @@ Options:
   --before    Set as baseline for tag
   --after     Set as target for tag comparison
   --result    Show comparison result for tag
-  --threshold INT Max allowed regression %
+  --threshold FLOAT Max allowed regression %
 ```
 
 ---
@@ -179,6 +179,12 @@ cd mach
 
 # Build (auto-detects platform)
 make
+
+# Debug build with symbols
+make debug
+
+# Address/undefined behavior sanitizer build
+make asan
 
 # Run
 ./mach http://example.com

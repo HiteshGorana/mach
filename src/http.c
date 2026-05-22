@@ -1,11 +1,83 @@
 #include "http.h"
-#include <errno.h>
-#include <fcntl.h>
+#include "url.h"
+#include <stdarg.h>
 #include <sys/socket.h>
 
 // ASM-optimized functions
 extern int fast_parse_status(char *response);
 extern double fast_duration_ms(long sec_diff, long nsec_diff);
+
+static int append_request(char *request, size_t request_size, size_t *len,
+                          const char *fmt, ...) {
+  if (*len >= request_size)
+    return 0;
+
+  va_list args;
+  va_start(args, fmt);
+  int written = vsnprintf(request + *len, request_size - *len, fmt, args);
+  va_end(args);
+
+  if (written < 0 || (size_t)written >= request_size - *len)
+    return 0;
+
+  *len += (size_t)written;
+  return 1;
+}
+
+static int build_request(char *request, size_t request_size, size_t *len,
+                         const ParsedUrl *url, const char *method,
+                         Header *headers, int header_count, const char *body,
+                         int keep_alive) {
+  *len = 0;
+  if (!append_request(request, request_size, len,
+                      "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: "
+                      "%s\r\nUser-Agent: Mach/1.1\r\n",
+                      method, url->path, url->host,
+                      keep_alive ? "keep-alive" : "close")) {
+    return 0;
+  }
+
+  for (int i = 0; i < header_count; i++) {
+    if (!append_request(request, request_size, len, "%s: %s\r\n",
+                        headers[i].key, headers[i].value)) {
+      return 0;
+    }
+  }
+
+  if (body && body[0] != '\0') {
+    if (!append_request(request, request_size, len, "Content-Length: %zu\r\n",
+                        strlen(body))) {
+      return 0;
+    }
+  }
+
+  if (!append_request(request, request_size, len, "\r\n"))
+    return 0;
+
+  if (body && body[0] != '\0') {
+    if (!append_request(request, request_size, len, "%s", body))
+      return 0;
+  }
+
+  return 1;
+}
+
+static int connection_write_all(Connection *conn, const char *data,
+                                size_t len) {
+  size_t sent = 0;
+  while (sent < len) {
+    int written;
+    if (conn->is_https) {
+      written = SSL_write(conn->ssl, data + sent, (int)(len - sent));
+    } else {
+      written = (int)write(conn->socket, data + sent, len - sent);
+    }
+    if (written <= 0)
+      return 0;
+    sent += (size_t)written;
+  }
+  return 1;
+}
 
 void http_init_openssl() {
   SSL_load_error_strings();
@@ -19,8 +91,7 @@ static SSL_CTX *create_ssl_context(int insecure) {
   const SSL_METHOD *method = TLS_client_method();
   SSL_CTX *ctx = SSL_CTX_new(method);
   if (!ctx) {
-    perror("Unable to create SSL context");
-    exit(EXIT_FAILURE);
+    return NULL;
   }
   if (insecure) {
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
@@ -30,39 +101,27 @@ static SSL_CTX *create_ssl_context(int insecure) {
 
 Connection *http_connect(const char *url_str, int insecure,
                          struct timespec timeout) {
-  char protocol[8], host[256], path[1024];
-  int port = 80;
-  int is_https = 0;
+  ParsedUrl parsed;
+  if (!url_parse(url_str, &parsed))
+    return NULL;
 
-  if (sscanf(url_str, "%7[^ : ]://%255[^:/]:%d%1023s", protocol, host, &port,
-             path) == 4) {
-  } else if (sscanf(url_str, "%7[^ : ]://%255[^:/]%1023s", protocol, host,
-                    path) == 3) {
-  } else if (sscanf(url_str, "%7[^ : ]://%255[^:/]", protocol, host) == 2) {
-    strcpy(path, "/");
-  } else {
+  struct addrinfo hints = {0};
+  struct addrinfo *result = NULL;
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+
+  char port_str[16];
+  snprintf(port_str, sizeof(port_str), "%d", parsed.port);
+
+  if (getaddrinfo(parsed.host, port_str, &hints, &result) != 0)
+    return NULL;
+
+  int sockfd =
+      socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+  if (sockfd < 0) {
+    freeaddrinfo(result);
     return NULL;
   }
-
-  if (strcmp(protocol, "https") == 0) {
-    is_https = 1;
-    if (port == 80)
-      port = 443;
-  }
-
-  struct hostent *server = gethostbyname(host);
-  if (server == NULL)
-    return NULL;
-
-  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0)
-    return NULL;
-
-  struct sockaddr_in serv_addr;
-  memset(&serv_addr, 0, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
-  serv_addr.sin_port = htons(port);
 
   struct timeval tv;
   tv.tv_sec = timeout.tv_sec;
@@ -70,20 +129,35 @@ Connection *http_connect(const char *url_str, int insecure,
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
   setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof(tv));
 
-  if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+  if (connect(sockfd, result->ai_addr, result->ai_addrlen) < 0) {
+    close(sockfd);
+    freeaddrinfo(result);
+    return NULL;
+  }
+  freeaddrinfo(result);
+
+  Connection *conn = malloc(sizeof(Connection));
+  if (!conn) {
     close(sockfd);
     return NULL;
   }
-
-  Connection *conn = malloc(sizeof(Connection));
   conn->socket = sockfd;
-  conn->is_https = is_https;
+  conn->is_https = parsed.is_https;
   conn->ssl = NULL;
   conn->ctx = NULL;
 
-  if (is_https) {
+  if (parsed.is_https) {
     conn->ctx = create_ssl_context(insecure);
+    if (!conn->ctx) {
+      http_close(conn);
+      return NULL;
+    }
     conn->ssl = SSL_new(conn->ctx);
+    if (!conn->ssl) {
+      http_close(conn);
+      return NULL;
+    }
+    SSL_set_tlsext_host_name(conn->ssl, parsed.host);
     SSL_set_fd(conn->ssl, sockfd);
     if (SSL_connect(conn->ssl) <= 0) {
       http_close(conn);
@@ -109,43 +183,34 @@ void http_close(Connection *conn) {
 
 Result http_send(Connection *conn, const char *url_str, const char *method,
                  Header *headers, int header_count, const char *body) {
-  char host[256], path[1024];
-  if (sscanf(url_str, "%*[^ : ]://%255[^:/]:%*d%1023s", host, path) != 2) {
-    if (sscanf(url_str, "%*[^ : ]://%255[^:/]%1023s", host, path) != 2) {
-      if (sscanf(url_str, "%*[^ : ]://%255[^:/]", host) == 1) {
-        strcpy(path, "/");
-      }
-    }
+  Result res = {.url = (char *)url_str,
+                .duration_ms = 0,
+                .status_code = 0,
+                .error = NULL};
+
+  ParsedUrl parsed;
+  if (!url_parse(url_str, &parsed)) {
+    res.error = "Invalid URL";
+    return res;
   }
 
-  char request[4096];
-  int len = snprintf(request, sizeof(request),
-                     "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: "
-                     "keep-alive\r\nUser-Agent: Mach/1.0\r\n",
-                     method, path, host);
-
-  for (int i = 0; i < header_count; i++) {
-    len += snprintf(request + len, sizeof(request) - len, "%s: %s\r\n",
-                    headers[i].key, headers[i].value);
-  }
-
-  if (body && strlen(body) > 0) {
-    len += snprintf(request + len, sizeof(request) - len,
-                    "Content-Length: %zu\r\n", strlen(body));
-  }
-  len += snprintf(request + len, sizeof(request) - len, "\r\n");
-
-  if (body && strlen(body) > 0) {
-    len += snprintf(request + len, sizeof(request) - len, "%s", body);
+  char request[8192];
+  size_t len = 0;
+  if (!build_request(request, sizeof(request), &len, &parsed, method, headers,
+                     header_count, body, 1)) {
+    res.error = "Request is too large";
+    return res;
   }
 
   struct timespec start, end;
   clock_gettime(CLOCK_MONOTONIC, &start);
 
-  if (conn->is_https) {
-    SSL_write(conn->ssl, request, len);
-  } else {
-    write(conn->socket, request, len);
+  if (!connection_write_all(conn, request, len)) {
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    res.duration_ms =
+        fast_duration_ms(end.tv_sec - start.tv_sec, end.tv_nsec - start.tv_nsec);
+    res.error = "Write failed";
+    return res;
   }
 
   char response[4096];
@@ -162,10 +227,7 @@ Result http_send(Connection *conn, const char *url_str, const char *method,
   double duration =
       fast_duration_ms(end.tv_sec - start.tv_sec, end.tv_nsec - start.tv_nsec);
 
-  Result res = {.url = (char *)url_str,
-                .duration_ms = duration,
-                .status_code = 0,
-                .error = NULL};
+  res.duration_ms = duration;
 
   if (bytes_read > 0) {
     response[bytes_read] = '\0';
@@ -184,28 +246,26 @@ char *http_fetch_body(const char *url, int insecure) {
   if (!conn)
     return NULL;
 
-  char host[256], path[1024];
-  if (sscanf(url, "%*[^ : ]://%255[^:/]:%*d%1023s", host, path) != 2) {
-    if (sscanf(url, "%*[^ : ]://%255[^:/]%1023s", host, path) != 2) {
-      if (sscanf(url, "%*[^ : ]://%255[^:/]", host) == 1) {
-        strcpy(path, "/");
-      }
-    }
+  ParsedUrl parsed;
+  if (!url_parse(url, &parsed)) {
+    http_close(conn);
+    return NULL;
   }
 
   char request[1024];
-  int len = snprintf(request, sizeof(request),
-                     "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: "
-                     "close\r\nUser-Agent: Mach/1.0\r\n\r\n",
-                     path, host);
-
-  if (conn->is_https) {
-    SSL_write(conn->ssl, request, len);
-  } else {
-    write(conn->socket, request, len);
+  size_t len = 0;
+  if (!build_request(request, sizeof(request), &len, &parsed, "GET", NULL, 0,
+                     NULL, 0) ||
+      !connection_write_all(conn, request, len)) {
+    http_close(conn);
+    return NULL;
   }
 
   char *buffer = malloc(65536);
+  if (!buffer) {
+    http_close(conn);
+    return NULL;
+  }
   int total_read = 0;
   int bytes_read;
   while (1) {
@@ -244,25 +304,19 @@ int http_download_to_file(const char *url, const char *path_to_save,
   if (!conn)
     return -1;
 
-  char host[256], path[1024];
-  if (sscanf(url, "%*[^ : ]://%255[^:/]:%*d%1023s", host, path) != 2) {
-    if (sscanf(url, "%*[^ : ]://%255[^:/]%1023s", host, path) != 2) {
-      if (sscanf(url, "%*[^ : ]://%255[^:/]", host) == 1) {
-        strcpy(path, "/");
-      }
-    }
+  ParsedUrl parsed;
+  if (!url_parse(url, &parsed)) {
+    http_close(conn);
+    return -1;
   }
 
   char request[1024];
-  int len = snprintf(request, sizeof(request),
-                     "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: "
-                     "close\r\nUser-Agent: Mach/1.0\r\n\r\n",
-                     path, host);
-
-  if (conn->is_https) {
-    SSL_write(conn->ssl, request, len);
-  } else {
-    write(conn->socket, request, len);
+  size_t len = 0;
+  if (!build_request(request, sizeof(request), &len, &parsed, "GET", NULL, 0,
+                     NULL, 0) ||
+      !connection_write_all(conn, request, len)) {
+    http_close(conn);
+    return -1;
   }
 
   FILE *fp = fopen(path_to_save, "wb");

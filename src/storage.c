@@ -1,7 +1,38 @@
 #include "storage.h"
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+static const char *storage_home() {
+  const char *home = getenv("HOME");
+#ifdef _WIN32
+  if (!home || home[0] == '\0')
+    home = getenv("USERPROFILE");
+#endif
+  return (home && home[0] != '\0') ? home : ".";
+}
+
+static void sanitize_component(const char *input, char *output,
+                               size_t output_size) {
+  size_t j = 0;
+  for (size_t i = 0; input[i] != '\0' && j + 1 < output_size; i++) {
+    unsigned char c = (unsigned char)input[i];
+    output[j++] = (isalnum(c) || c == '-' || c == '_' || c == '.') ? c : '_';
+  }
+  output[j] = '\0';
+}
+
+static void write_json_string(FILE *f, const char *value) {
+  fputc('"', f);
+  for (const char *p = value; *p != '\0'; p++) {
+    if (*p == '"' || *p == '\\') {
+      fputc('\\', f);
+    }
+    fputc(*p, f);
+  }
+  fputc('"', f);
+}
 
 static void ensure_dir(const char *path) {
   struct stat st = {0};
@@ -16,11 +47,12 @@ static void ensure_dir(const char *path) {
 
 void storage_init() {
   char path[512];
-  snprintf(path, sizeof(path), "%s/.mach", getenv("HOME"));
+  const char *home = storage_home();
+  snprintf(path, sizeof(path), "%s/.mach", home);
   ensure_dir(path);
-  snprintf(path, sizeof(path), "%s/.mach/history", getenv("HOME"));
+  snprintf(path, sizeof(path), "%s/.mach/history", home);
   ensure_dir(path);
-  snprintf(path, sizeof(path), "%s/.mach/tags", getenv("HOME"));
+  snprintf(path, sizeof(path), "%s/.mach/tags", home);
   ensure_dir(path);
 }
 
@@ -34,7 +66,7 @@ void save_run(const char *url, int requests, int success, int failed,
   strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", t);
 
   snprintf(filename, sizeof(filename), "%s/.mach/history/%s.json",
-           getenv("HOME"), timestamp);
+           storage_home(), timestamp);
 
   FILE *f = fopen(filename, "w");
   if (!f)
@@ -42,7 +74,9 @@ void save_run(const char *url, int requests, int success, int failed,
 
   fprintf(f, "{\n");
   fprintf(f, "  \"timestamp\": \"%lld\",\n", (long long)now);
-  fprintf(f, "  \"url\": \"%s\",\n", url);
+  fprintf(f, "  \"url\": ");
+  write_json_string(f, url);
+  fprintf(f, ",\n");
   fprintf(f, "  \"total_requests\": %d,\n", requests);
   fprintf(f, "  \"successful\": %d,\n", success);
   fprintf(f, "  \"failed\": %d,\n", failed);
@@ -57,13 +91,19 @@ char *storage_read_file(const char *filename) {
   FILE *f = fopen(filename, "rb");
   if (!f)
     return NULL;
-  fseek(f, 0, SEEK_END);
+  if (fseek(f, 0, SEEK_END) != 0) {
+    fclose(f);
+    return NULL;
+  }
   long length = ftell(f);
-  fseek(f, 0, SEEK_SET);
+  if (length < 0 || fseek(f, 0, SEEK_SET) != 0) {
+    fclose(f);
+    return NULL;
+  }
   char *buffer = malloc(length + 1);
   if (buffer) {
-    fread(buffer, 1, length, f);
-    buffer[length] = '\0';
+    size_t read = fread(buffer, 1, length, f);
+    buffer[read] = '\0';
   }
   fclose(f);
   return buffer;
@@ -76,11 +116,20 @@ int storage_load_urls(const char *filename, char **urls, int max_urls) {
   char line[1024];
   int count = 0;
   while (fgets(line, sizeof(line), f) && count < max_urls) {
-    size_t len = strlen(line);
-    if (len > 0 && line[len - 1] == '\n')
-      line[len - 1] = '\0';
-    if (strlen(line) > 0 && line[0] != '#') {
-      urls[count++] = strdup(line);
+    line[strcspn(line, "\r\n")] = '\0';
+    char *start = line;
+    while (isspace((unsigned char)*start))
+      start++;
+
+    char *end = start + strlen(start);
+    while (end > start && isspace((unsigned char)*(end - 1)))
+      *--end = '\0';
+
+    if (start[0] != '\0' && start[0] != '#') {
+      char *url = strdup(start);
+      if (!url)
+        break;
+      urls[count++] = url;
     }
   }
   fclose(f);
@@ -89,7 +138,7 @@ int storage_load_urls(const char *filename, char **urls, int max_urls) {
 
 int storage_list_history(char **files, int max_files) {
   char path[512];
-  snprintf(path, sizeof(path), "%s/.mach/history", getenv("HOME"));
+  snprintf(path, sizeof(path), "%s/.mach/history", storage_home());
   DIR *d = opendir(path);
   if (!d)
     return 0;
@@ -106,7 +155,7 @@ int storage_list_history(char **files, int max_files) {
 
 void storage_clear_history() {
   char path[512];
-  snprintf(path, sizeof(path), "%s/.mach/history", getenv("HOME"));
+  snprintf(path, sizeof(path), "%s/.mach/history", storage_home());
   DIR *d = opendir(path);
   if (!d)
     return;
@@ -122,8 +171,11 @@ void storage_clear_history() {
 }
 
 void storage_save_tagged(const char *tag, const char *type, Stats stats) {
+  char safe_tag[128];
+  sanitize_component(tag, safe_tag, sizeof(safe_tag));
+
   char path[512];
-  snprintf(path, sizeof(path), "%s/.mach/tags/%s", getenv("HOME"), tag);
+  snprintf(path, sizeof(path), "%s/.mach/tags/%s", storage_home(), safe_tag);
   ensure_dir(path);
 
   char filename[512];
@@ -151,9 +203,12 @@ void storage_save_tagged(const char *tag, const char *type, Stats stats) {
 }
 
 int storage_load_tagged(const char *tag, const char *type, Stats *stats) {
+  char safe_tag[128];
+  sanitize_component(tag, safe_tag, sizeof(safe_tag));
+
   char filename[512];
   snprintf(filename, sizeof(filename), "%s/.mach/tags/%s/%s.json",
-           getenv("HOME"), tag, type);
+           storage_home(), safe_tag, type);
 
   char *data = storage_read_file(filename);
   if (!data)

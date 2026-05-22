@@ -1,5 +1,5 @@
 # Mach Installer for Windows PowerShell
-# Usage: irm https://raw.githubusercontent.com/HiteshGorana/mach/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/HiteshGorana/mach/main/scripts/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 

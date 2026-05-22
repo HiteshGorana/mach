@@ -13,6 +13,15 @@ static int compare_doubles(const void *a, const void *b) {
   return (da > db) - (da < db);
 }
 
+static int percentile_index(int count, double percentile) {
+  int index = (int)((count - 1) * percentile);
+  if (index < 0)
+    return 0;
+  if (index >= count)
+    return count - 1;
+  return index;
+}
+
 Stats calculate_stats(Result *results, int count, double total_duration_s) {
   Stats s = {0};
   s.total_requests = count;
@@ -36,7 +45,7 @@ Stats calculate_stats(Result *results, int count, double total_duration_s) {
       s.status_codes[results[i].status_code]++;
     }
 
-    if (results[i].duration_ms > 0) {
+    if (latencies && results[i].duration_ms > 0) {
       latencies[valid_latencies++] = results[i].duration_ms;
     }
   }
@@ -49,15 +58,16 @@ Stats calculate_stats(Result *results, int count, double total_duration_s) {
     s.max_latency = fast_max(latencies, valid_latencies);
 
     qsort(latencies, valid_latencies, sizeof(double), compare_doubles);
-    s.p50_latency = latencies[(int)(valid_latencies * 0.50)];
-    s.p95_latency = latencies[(int)(valid_latencies * 0.95)];
-    s.p99_latency = latencies[(int)(valid_latencies * 0.99)];
+    s.p50_latency = latencies[percentile_index(valid_latencies, 0.50)];
+    s.p95_latency = latencies[percentile_index(valid_latencies, 0.95)];
+    s.p99_latency = latencies[percentile_index(valid_latencies, 0.99)];
   }
 
   if (total_duration_s > 0) {
     s.rps = count / total_duration_s;
   }
 
-  free(latencies);
+  if (latencies)
+    free(latencies);
   return s;
 }

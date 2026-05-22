@@ -15,6 +15,15 @@
 #define COLOR_MAGENTA "\x1b[35m"
 #define COLOR_BRIGHT_MAGENTA "\x1b[95m"
 
+static const char *ui_home() {
+  const char *home = getenv("HOME");
+#ifdef _WIN32
+  if (!home || home[0] == '\0')
+    home = getenv("USERPROFILE");
+#endif
+  return (home && home[0] != '\0') ? home : ".";
+}
+
 void ui_header(const char *text) {
   printf("%s%s%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA, text, COLOR_RESET);
 }
@@ -127,7 +136,7 @@ void ui_dashboard() {
     if (key == '\n' || key == '\r') {
       char full_path[512];
       snprintf(full_path, sizeof(full_path), "%s/.mach/history/%s",
-               getenv("HOME"), files[cursor]);
+               ui_home(), files[cursor]);
       char *content = storage_read_file(full_path);
       if (content) {
         printf("\033[H\033[J");

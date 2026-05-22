@@ -1,6 +1,6 @@
 #!/bin/sh
 # Mach Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/HiteshGorana/mach/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/HiteshGorana/mach/main/scripts/install.sh | sh
 
 set -e
 

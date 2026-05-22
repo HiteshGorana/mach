@@ -2,12 +2,14 @@
 
 ## Project Structure & Module Organization
 
-Mach is a cross-platform C command-line HTTP load tester. Core source lives in `src/`: `main.c` handles CLI parsing, `attacker.c` runs load tests, `stats.c` computes metrics, `storage.c` manages history, `ui.c` renders terminal output, and `updater.c` handles self-update behavior. Shared interfaces are in matching `.h` files. Platform-specific implementations live beside the core code as `http.c`/`terminal.c` for POSIX systems and `http_win.c`/`terminal_win.c` for Windows. Hand-optimized assembly is under `src/asm/`. Install scripts are in `scripts/`. Release automation lives under `.github/workflows/`.
+Mach is a cross-platform C command-line HTTP load tester. Core source lives in `src/`: `main.c` handles CLI parsing, `attacker.c` runs load tests, `stats.c` computes metrics, `storage.c` manages history, `ui.c` renders terminal output, `url.c` parses supported URLs, and `updater.c` handles self-update behavior. Shared interfaces are in matching `.h` files. Platform-specific implementations live beside the core code as `http.c`/`terminal.c` for POSIX systems and `http_win.c`/`terminal_win.c` for Windows. Hand-optimized assembly is under `src/asm/`. Install scripts are in `scripts/`. Release automation lives under `.github/workflows/`.
 
 ## Build, Test, and Development Commands
 
 - `make` builds the native `mach` binary for the current platform.
 - `make clean` removes `obj/`, `mach`, and `mach.exe`.
+- `make debug` builds with symbols and no stripping.
+- `make asan` builds with address and undefined-behavior sanitizers.
 - `./mach http://example.com` runs a basic smoke test after building.
 - `./mach --profile smoke http://example.com` verifies profile handling with a short run.
 
@@ -19,7 +21,7 @@ Use two-space indentation in C files, braces on the same line, and `snake_case` 
 
 ## Testing Guidelines
 
-There is no dedicated automated test suite yet. Before opening a PR, run `make clean && make`, then perform CLI smoke checks for a normal URL, a profile run, and any touched option. For performance-sensitive changes, capture before/after runs with `--tag`, `--before`, `--after`, and `--result`.
+There is no dedicated automated test suite yet. Before opening a PR, run `make clean`, `make`, and targeted CLI smoke checks for a normal URL, a profile run, and any touched option. Use `make asan` for memory-sensitive C changes. For performance-sensitive changes, capture before/after runs with `--tag`, `--before`, `--after`, and `--result`.
 
 ## Commit & Pull Request Guidelines
 
