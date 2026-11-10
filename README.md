@@ -1,229 +1,117 @@
 # ⚡ Mach
 
-**Ultra-fast HTTP load tester written in C with hand-optimized Assembly.**
+**A fast HTTP load tester written in C, with hand-optimized assembly for the stats hot path.**
 
 [![Build](https://github.com/HiteshGorana/mach/actions/workflows/build.yml/badge.svg)](https://github.com/HiteshGorana/mach/actions/workflows/build.yml)
-![Size](https://img.shields.io/badge/binary-52KB-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
----
-
 ![Mach architecture](docs/architecture.svg)
 
----
-
-## ✨ Features
-
-| Feature | Description |
-|:--------|:------------|
-| 🚀 **Extreme Performance** | Raw POSIX sockets + pthreads |
-| 🔧 **Hand-Written ASM** | ARM64 NEON & x86_64 SSE optimized |
-| 📦 **Tiny Binary** | ~52 KB stripped |
-| 🛡️ **HTTPS Support** | OpenSSL 3 integration |
-| 📊 **Rich Stats** | P50, P95, P99 latencies + status codes |
-| 🖥️ **Interactive Dashboard** | Navigate test history with arrow keys |
-| 📋 **Test Profiles** | Smoke, stress, and soak presets |
-| 📉 **Regression Testing** | Before/After comparison with tags |
-| 🛡️ **Perf Gates** | Build-breaking regression thresholds |
-
----
-
-## 📥 Install
+## Install
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/HiteshGorana/mach.git
 cd mach
-
-# 2. Run the installation script
-# For macOS/Linux:
-sh scripts/install.sh
-
-# For Windows (PowerShell):
-.\scripts\install.ps1
+sh scripts/install.sh          # macOS/Linux
+.\scripts\install.ps1          # Windows (PowerShell)
 ```
 
-### Manual Download
-Download pre-built binaries from [**Releases**](https://github.com/HiteshGorana/mach/releases)
+Pre-built binaries are also on the [Releases](https://github.com/HiteshGorana/mach/releases) page.
 
----
-
-## 🚀 Quick Start
+## Quick start
 
 ```bash
-# Simple test
-mach http://localhost:8080
-
-# 1000 requests with 50 concurrent workers
-mach -n 1000 -c 50 http://example.com
-
-# 5-minute soak test
-mach -d 5m -c 20 http://api.example.com
-
-# Stress test profile
-mach --profile stress http://example.com
+mach http://localhost:8080                  # single run with defaults
+mach -n 1000 -c 50 http://example.com       # 1000 requests, 50 workers
+mach -d 5m -c 20 http://api.example.com     # 5-minute soak
+mach --profile stress http://example.com    # preset
 ```
 
----
+## Usage
 
-## 💡 Recipes
+```
+mach [command] [options] <url>
 
-### JSON API Test (POST)
-```bash
-mach -m POST \
-     -h "Content-Type: application/json" \
-     -b '{"name": "test", "value": 123}' \
-     https://api.example.com/v1/data
+Commands:
+  attack       Full load test (default when a URL is given)
+  dashboard    Browse past runs interactively
+  history      List or clear saved runs (history clear)
+  examples     Show usage examples
+  update       Update to the latest release
+  version      Show version
+
+Options:
+  -n INT         Total requests (default 100)
+  -d DURATION    Run for a duration instead, e.g. 30s, 5m
+  -c INT         Concurrent workers (default 10)
+  -r INT         Aggregate requests-per-second limit
+  -m METHOD      HTTP method (default GET)
+  -h "K: V"      Add a header, e.g. "Authorization: Bearer TOKEN"
+  -b BODY        Request body
+  --body-file F  Read the request body from a file
+  --urls-file F  Test each URL listed in a file (one per line)
+  -t DURATION    Per-request timeout, e.g. 5s
+  --ramp-up DUR  Stagger worker start over this duration
+  -p NAME        Preset: smoke, stress, soak (also --profile)
+  -k             Skip TLS certificate verification (also --insecure)
+  --tag NAME     Name a comparison series
+  --before       Save this run as the baseline for --tag
+  --after        Save this run as the target for --tag
+  --result       Show the before/after comparison for --tag
+  --threshold PCT Fail if average latency regresses more than PCT
 ```
 
-### Auth Protected Endpoint
+| Profile | Requests | Concurrency | Use case |
+|:--------|:---------|:------------|:---------|
+| `smoke` | 10 | 2 | Sanity check |
+| `stress` | 10,000 | 100 | High load |
+| `soak` | Duration | 50 | Long-running stability |
+
+## Examples
+
+**POST a JSON body**
 ```bash
-mach -h "Authorization: Bearer YOUR_TOKEN" \
-     https://api.example.com/secure
+mach -m POST -h "Content-Type: application/json" \
+     -b '{"name": "test", "value": 123}' https://api.example.com/v1/data
 ```
 
-### High-Concurrency Stress Test
+**Rate-limited run**
 ```bash
-# 500 workers, 10k requests, skip TLS verification
-mach -n 10000 -c 500 --insecure https://stage.api.com
-```
-
-### Throttled API Test (Rate Limiting)
-```bash
-# Limit to 50 requests per second
 mach -r 50 -d 30s https://api.example.com
 ```
 
-### Regression Testing (Before/After)
-Track performance improvements or regressions across code changes.
-
+**Several URLs** (one per line in a file)
 ```bash
-# 1. Capture baseline (before optimization)
-mach --tag perf-fix --before -n 1000 http://api.com
-
-# 2. Capture target (after optimization)
-mach --tag perf-fix --after -n 1000 http://api.com
-
-# 3. View comparison table
-mach --tag perf-fix --result
+mach -n 1000 -c 20 --urls-file urls.txt
 ```
 
-### CI Performance Gate
-Automatically fail CI/CD pipelines if performance regresses beyond a threshold.
+## Regression testing
+
+Compare performance across code changes:
 
 ```bash
-# Fail if avg latency regresses by more than 5%
+mach --tag perf-fix --before -n 1000 http://api.com   # baseline
+mach --tag perf-fix --after  -n 1000 http://api.com   # after your change
+mach --tag perf-fix --result                          # comparison table
+```
+
+For CI, add a threshold so the run fails on a regression:
+
+```bash
 mach --tag release-1.1 --after --threshold 5 -n 1000 http://api.com
 ```
 
-### Testing Multiple URLs
-Create a `urls.txt`:
-```
-https://example.com/page1
-https://example.com/page2
-https://example.com/api/v1
-```
-Run:
-```bash
-mach -n 1000 -c 20 urls.txt
-```
-
----
-
-## 📖 Usage
-
-```
-⚡ Mach
-
-Usage: mach [command] [options] <url>
-
-Commands:
-  attack      Full-featured load test
-  dashboard   View historical test runs
-  history     Manage test history (clear, list)
-  examples    Show usage examples
-  version     Show version information
-
-Options:
-  -n INT      Total requests (default 100)
-  -d STR      Run duration (e.g., 30s, 1m, 5m)
-  -c INT      Concurrent workers (default 10)
-  -r INT      Aggregate requests-per-second limit
-  -p STR      Test profile (smoke, stress, soak)
-  -m STR      HTTP method (default GET)
-  -h STR      Add header (e.g., "Authorization:Bearer token")
-  -b STR      Request body
-  --insecure  Skip TLS verification
-  --tag STR   Tag name for comparison
-  --before    Set as baseline for tag
-  --after     Set as target for tag comparison
-  --result    Show comparison result for tag
-  --threshold FLOAT Max allowed regression %
-```
-
----
-
-## 🎯 Profiles
-
-| Profile | Requests | Concurrency | Use Case |
-|:--------|:---------|:------------|:---------|
-| `smoke` | 10 | 2 | Quick sanity check |
-| `stress` | 10,000 | 100 | High load testing |
-| `soak` | Duration | 50 | Long-running stability |
-
----
-
-## 🔧 Build from Source
+## Build from source
 
 ```bash
-# Clone
-git clone https://github.com/HiteshGorana/mach.git
-cd mach
-
-# Build (auto-detects platform)
-make
-
-# Debug build with symbols
-make debug
-
-# Address/undefined behavior sanitizer build
-make asan
-
-# Run
-./mach http://example.com
+make              # build for this platform
+make debug        # symbols, no stripping
+make asan         # address and undefined-behavior sanitizers
 ```
 
-**Requirements:**
-- GCC or Clang
-- OpenSSL 3 (`brew install openssl@3` on macOS)
-- Make
+Requirements: GCC or Clang, Make, and OpenSSL 3 (`brew install openssl@3` on macOS).
 
----
-
-## ⚡ ASM Optimization
-
-Critical hot paths use hand-written Assembly for maximum performance:
-
-| Function | ARM64 (Apple Silicon) | x86_64 (Intel/AMD) |
-|:---------|:---------------------|:-------------------|
-| `fast_sum` | NEON `fadd` | SSE2 `addpd` |
-| `fast_min` | NEON `fmin` | SSE2 `minpd` |
-| `fast_max` | NEON `fmax` | SSE2 `maxpd` |
-| `fast_parse_status` | Optimized loop | Optimized loop |
-| `fast_duration_ms` | FP math | FP math |
-
----
-
-## 🌍 Cross-Platform
-
-Mach runs natively on:
-- ✅ **macOS** (ARM64 Apple Silicon & Intel x86_64)
-- ✅ **Linux** (x86_64)
-- ✅ **Windows** (x86_64 via MinGW)
-
----
-
-## 📄 License
+## License
 
 MIT © [Hitesh Gorana](https://github.com/HiteshGorana)
