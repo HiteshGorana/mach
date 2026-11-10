@@ -10,12 +10,13 @@
 
 ## Install
 
+One line, no clone needed:
+
 ```bash
-git clone https://github.com/HiteshGorana/mach.git
-cd mach
-sh scripts/install.sh          # macOS/Linux
-.\scripts\install.ps1          # Windows (PowerShell)
+curl -fsSL https://github.com/HiteshGorana/mach/releases/latest/download/install.sh | sh
 ```
+
+Or from a clone: `sh scripts/install.sh` (macOS/Linux) and `.\scripts\install.ps1` (Windows PowerShell).
 
 Pre-built binaries are also on the [Releases](https://github.com/HiteshGorana/mach/releases) page.
 
