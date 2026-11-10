@@ -9,6 +9,10 @@
 
 ---
 
+![Mach architecture](docs/architecture.svg)
+
+---
+
 ## ✨ Features
 
 | Feature | Description |
