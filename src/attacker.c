@@ -24,12 +24,20 @@ static void request_stop(WorkerContext *ctx) {
 static void record_result(WorkerContext *ctx, Result res) {
   pthread_mutex_lock(ctx->mutex);
   int count = *(ctx->results_count);
-  if (count < ctx->max_results) {
-    ctx->results[count] = res;
-    *(ctx->results_count) = count + 1;
-  } else {
-    *(ctx->stop) = 1;
+  if (count == *(ctx->results_capacity)) {
+    int new_cap = *(ctx->results_capacity) * 2;
+    Result *grown = realloc(*(ctx->results), sizeof(Result) * new_cap);
+    if (!grown) {
+      ui_error("Error: Out of memory recording results; stopping early.\n");
+      *(ctx->stop) = 1;
+      pthread_mutex_unlock(ctx->mutex);
+      return;
+    }
+    *(ctx->results) = grown;
+    *(ctx->results_capacity) = new_cap;
   }
+  (*ctx->results)[count] = res;
+  *(ctx->results_count) = count + 1;
   pthread_mutex_unlock(ctx->mutex);
 }
 
@@ -157,11 +165,12 @@ void attacker_run(Options *opts) {
     }
   }
 
-  int max_results = opts->requests > 0 ? opts->requests : 1000000;
+  // Fixed-count runs know their size up front; duration runs grow on demand.
+  int results_capacity = opts->requests > 0 ? opts->requests : 4096;
 
   pthread_t *threads = malloc(sizeof(pthread_t) * opts->concurrency);
   WorkerContext *contexts = malloc(sizeof(WorkerContext) * opts->concurrency);
-  Result *results = malloc(sizeof(Result) * max_results);
+  Result *results = malloc(sizeof(Result) * results_capacity);
   if (!threads || !contexts || !results) {
     ui_error("Error: Not enough memory to start load test.\n");
     free(threads);
@@ -189,9 +198,9 @@ void attacker_run(Options *opts) {
   int created_threads = 0;
   for (int i = 0; i < opts->concurrency; i++) {
     contexts[i].opts = opts;
-    contexts[i].results = results;
+    contexts[i].results = &results;
     contexts[i].results_count = &results_count;
-    contexts[i].max_results = max_results;
+    contexts[i].results_capacity = &results_capacity;
     contexts[i].mutex = &mutex;
     contexts[i].stop = &stop;
     contexts[i].worker_id = i;

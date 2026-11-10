@@ -6,9 +6,9 @@
 
 typedef struct {
   Options *opts;
-  Result *results;
+  Result **results;
   int *results_count;
-  int max_results;
+  int *results_capacity;
   pthread_mutex_t *mutex;
   int *stop;
   int worker_id;
