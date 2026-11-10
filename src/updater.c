@@ -58,7 +58,7 @@ static char *get_current_executable_path() {
   return path;
 }
 
-void updater_run() {
+void updater_run(int check_only) {
   printf("⚡ Checking for updates...\n");
 
   char *json = http_fetch_body(
@@ -85,6 +85,11 @@ void updater_run() {
   }
 
   printf("🚀 New version found: v%s (Current: v%s)\n", remote_version, VERSION);
+  if (check_only) {
+    printf("   Run 'mach update' to install it.\n");
+    free(json);
+    return;
+  }
 
   // Find asset for current platform
   char asset_pattern[64];

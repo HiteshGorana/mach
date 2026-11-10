@@ -1,6 +1,8 @@
 #!/bin/sh
 # Mach Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/HiteshGorana/mach/main/scripts/install.sh | sh
+#        curl -fsSL .../install.sh | sh -s -- --uninstall           # remove binary, keep history
+#        curl -fsSL .../install.sh | sh -s -- --uninstall --purge   # also delete ~/.mach
 
 set -e
 
@@ -46,6 +48,44 @@ if [ "$PLATFORM" = "windows" ]; then
     INSTALL_DIR="$HOME/bin"
 else
     FILENAME="mach-${PLATFORM}-${ARCH}"
+fi
+
+MODE=install
+PURGE=0
+for arg in "$@"; do
+    case "$arg" in
+        --uninstall) MODE=uninstall ;;
+        --purge) PURGE=1 ;;
+        *)
+            echo "Unknown option: $arg"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$MODE" = "uninstall" ]; then
+    if [ "$PLATFORM" = "windows" ]; then
+        BIN="$INSTALL_DIR/mach.exe"
+    else
+        BIN="$INSTALL_DIR/mach"
+    fi
+
+    if [ -f "$BIN" ]; then
+        rm -f "$BIN"
+        echo "🗑️  Removed $BIN"
+    else
+        echo "   No binary found at $BIN"
+    fi
+
+    if [ "$PURGE" = "1" ]; then
+        rm -rf "$HOME/.mach"
+        echo "🗑️  Removed $HOME/.mach (history and tags)"
+    else
+        echo "   Kept history and tags in $HOME/.mach (pass --purge to delete)"
+    fi
+
+    echo "✅ Mach uninstalled."
+    exit 0
 fi
 
 echo "⚡ Installing Mach..."
