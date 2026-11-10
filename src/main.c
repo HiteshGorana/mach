@@ -32,6 +32,9 @@ void print_usage() {
   printf("  --after     Set as target for tag comparison\n");
   printf("  --result    Show comparison result for tag\n");
   printf("  --threshold FLOAT Max allowed regression %% (default 0)\n");
+  printf("  --output FILE   Write the run summary as JSON to FILE\n");
+  printf("  -q, --quiet     No progress bar or summary (errors still shown)\n");
+  printf("  --no-color      Disable ANSI colors\n");
 }
 
 static int parse_int_arg(const char *value, const char *name, int min_value,
@@ -214,13 +217,16 @@ int main(int argc, char *argv[]) {
       {"after", no_argument, 0, 1006},
       {"result", no_argument, 0, 1007},
       {"threshold", required_argument, 0, 1008},
+      {"output", required_argument, 0, 1009},
+      {"quiet", no_argument, 0, 'q'},
+      {"no-color", no_argument, 0, 1010},
       {"version", no_argument, 0, 'v'},
       {"help", no_argument, 0, '?'},
       {0, 0, 0, 0}};
 
   int opt;
   optind = start_idx;
-  while ((opt = getopt_long(argc, argv, "n:d:c:r:p:m:h:b:t:kv?", long_options,
+  while ((opt = getopt_long(argc, argv, "n:d:c:r:p:m:h:b:t:kqv?", long_options,
                             NULL)) != -1) {
     switch (opt) {
     case 'n':
@@ -303,6 +309,17 @@ int main(int argc, char *argv[]) {
       if (!parse_double_arg(optarg, "--threshold", 0, &opts.threshold))
         return 1;
       break;
+    case 1009:
+      opts.output_file = copy_arg(optarg, "--output");
+      if (!opts.output_file)
+        return 1;
+      break;
+    case 'q':
+      opts.quiet = 1;
+      break;
+    case 1010:
+      opts.no_color = 1;
+      break;
     case 'v':
       printf("Mach v%s\n", VERSION);
       return 0;
@@ -331,6 +348,8 @@ int main(int argc, char *argv[]) {
     ui_error("Error: --threshold is only valid with --after\n");
     return 1;
   }
+
+  ui_configure(opts.no_color, opts.quiet);
 
   if (opts.show_result) {
     ui_display_comparison(opts.tag);
