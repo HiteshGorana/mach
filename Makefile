@@ -24,8 +24,10 @@ TARGET = mach
 # Platform-specific settings
 ifeq ($(UNAME_S),Darwin)
     # macOS
-    CFLAGS += -I/opt/homebrew/opt/openssl@3/include
-    LDFLAGS = -L/opt/homebrew/opt/openssl@3/lib -lssl -lcrypto -lpthread
+    # Apple Silicon Homebrew lives in /opt/homebrew, Intel Homebrew in /usr/local.
+    OPENSSL_PREFIX ?= $(firstword $(wildcard /opt/homebrew/opt/openssl@3 /usr/local/opt/openssl@3))
+    CFLAGS += -I$(OPENSSL_PREFIX)/include
+    LDFLAGS = -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto -lpthread
     ifeq ($(UNAME_M),arm64)
         ASM_SRC = fast_stats_arm64.s
     else
