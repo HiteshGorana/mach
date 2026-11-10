@@ -4,16 +4,29 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COLOR_RESET "\x1b[0m"
-#define COLOR_BOLD "\x1b[1m"
-#define COLOR_DIM "\x1b[2m"
-#define COLOR_GREEN "\x1b[32m"
-#define COLOR_RED "\x1b[31m"
-#define COLOR_CYAN "\x1b[36m"
-#define COLOR_YELLOW "\x1b[33m"
-#define COLOR_BRIGHT_YELLOW "\x1b[93m"
-#define COLOR_MAGENTA "\x1b[35m"
-#define COLOR_BRIGHT_MAGENTA "\x1b[95m"
+// Set once from the command line; when color is off every code expands to "".
+static int ui_color_enabled = 1;
+static int ui_quiet = 0;
+
+#define COLOR_RESET (ui_color_enabled ? "\x1b[0m" : "")
+#define COLOR_BOLD (ui_color_enabled ? "\x1b[1m" : "")
+#define COLOR_DIM (ui_color_enabled ? "\x1b[2m" : "")
+#define COLOR_GREEN (ui_color_enabled ? "\x1b[32m" : "")
+#define COLOR_RED (ui_color_enabled ? "\x1b[31m" : "")
+#define COLOR_CYAN (ui_color_enabled ? "\x1b[36m" : "")
+#define COLOR_YELLOW (ui_color_enabled ? "\x1b[33m" : "")
+#define COLOR_BRIGHT_YELLOW (ui_color_enabled ? "\x1b[93m" : "")
+#define COLOR_MAGENTA (ui_color_enabled ? "\x1b[35m" : "")
+#define COLOR_BRIGHT_MAGENTA (ui_color_enabled ? "\x1b[95m" : "")
+// Bold magenta section headers (two codes, so one macro).
+#define COLOR_HEADER (ui_color_enabled ? "\x1b[1m\x1b[95m" : "")
+
+void ui_configure(int no_color, int quiet) {
+  ui_color_enabled = !no_color;
+  ui_quiet = quiet;
+}
+
+int ui_is_quiet(void) { return ui_quiet; }
 
 static const char *ui_home() {
   const char *home = getenv("HOME");
@@ -25,7 +38,7 @@ static const char *ui_home() {
 }
 
 void ui_header(const char *text) {
-  printf("%s%s%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA, text, COLOR_RESET);
+  printf("%s%s%s\n", COLOR_HEADER, text, COLOR_RESET);
 }
 
 void ui_info(const char *text) {
@@ -33,6 +46,8 @@ void ui_info(const char *text) {
 }
 
 void ui_success(const char *text) {
+  if (ui_quiet)
+    return;
   printf("%s%s%s", COLOR_GREEN, text, COLOR_RESET);
 }
 
@@ -43,6 +58,8 @@ void ui_error(const char *text) {
 // Status codes are displayed simply in the compact view.
 
 void ui_progress_bar(int current, int total, double elapsed_s) {
+  if (ui_quiet)
+    return;
   if (total == 0) {
     printf("\r  ⏱️  %.1fs | %d req | %.1f/s ", elapsed_s, current,
            elapsed_s > 0 ? (double)current / elapsed_s : 0);
@@ -65,7 +82,9 @@ void ui_progress_bar(int current, int total, double elapsed_s) {
 }
 
 void ui_display_summary(Stats s) {
-  printf("\n\n%s🚀 SUMMARY%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA, COLOR_RESET);
+  if (ui_quiet)
+    return;
+  printf("\n\n%s🚀 SUMMARY%s\n", COLOR_HEADER, COLOR_RESET);
   printf("%s──────────────────────────────────%s\n", COLOR_DIM, COLOR_RESET);
 
   printf("  %-15s %d\n", "Requests", s.total_requests);
@@ -82,7 +101,7 @@ void ui_display_summary(Stats s) {
   printf("  %-15s %.2f/s\n", "Requests/sec", s.rps);
 
   if (s.success > 0) {
-    printf("\n%s📊 LATENCY%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA, COLOR_RESET);
+    printf("\n%s📊 LATENCY%s\n", COLOR_HEADER, COLOR_RESET);
     printf("  Avg: %.2fms | P50: %.2fms | P95: %.2fms\n", s.avg_latency,
            s.p50_latency, s.p95_latency);
   }
@@ -91,7 +110,7 @@ void ui_display_summary(Stats s) {
   for (int i = 100; i < 600; i++) {
     if (s.status_codes[i] > 0) {
       if (!printed_status) {
-        printf("\n%s📡 STATUS%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA,
+        printf("\n%s📡 STATUS%s\n", COLOR_HEADER,
                COLOR_RESET);
         printed_status = 1;
       }
@@ -203,7 +222,7 @@ void ui_display_comparison(const char *tag) {
     return;
   }
 
-  printf("\n%s⚖️  COMPARISON: %s%s\n", COLOR_BOLD COLOR_BRIGHT_MAGENTA, tag,
+  printf("\n%s⚖️  COMPARISON: %s%s\n", COLOR_HEADER, tag,
          COLOR_RESET);
   printf("%s──────────────────────────────────────────────────────────%s\n",
          COLOR_DIM, COLOR_RESET);

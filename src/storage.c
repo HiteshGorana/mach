@@ -236,3 +236,41 @@ int storage_load_tagged(const char *tag, const char *type, Stats *stats) {
   free(data);
   return 1;
 }
+
+int storage_write_summary(const char *path, const char *url, Stats stats) {
+  FILE *f = fopen(path, "w");
+  if (!f)
+    return 0;
+
+  fprintf(f, "{\n");
+  fprintf(f, "  \"version\": \"%s\",\n", VERSION);
+  fprintf(f, "  \"url\": ");
+  write_json_string(f, url);
+  fprintf(f, ",\n");
+  fprintf(f, "  \"requests\": %d,\n", stats.total_requests);
+  fprintf(f, "  \"success\": %d,\n", stats.success);
+  fprintf(f, "  \"failed\": %d,\n", stats.failed);
+  fprintf(f, "  \"duration_s\": %.4f,\n", stats.total_duration_s);
+  fprintf(f, "  \"rps\": %.4f,\n", stats.rps);
+  fprintf(f, "  \"latency_ms\": {\n");
+  fprintf(f, "    \"avg\": %.4f,\n", stats.avg_latency);
+  fprintf(f, "    \"min\": %.4f,\n", stats.min_latency);
+  fprintf(f, "    \"max\": %.4f,\n", stats.max_latency);
+  fprintf(f, "    \"p50\": %.4f,\n", stats.p50_latency);
+  fprintf(f, "    \"p95\": %.4f,\n", stats.p95_latency);
+  fprintf(f, "    \"p99\": %.4f\n", stats.p99_latency);
+  fprintf(f, "  },\n");
+  fprintf(f, "  \"status_codes\": {");
+  int first = 1;
+  for (int i = 0; i < 600; i++) {
+    if (stats.status_codes[i] > 0) {
+      fprintf(f, "%s\"%d\": %d", first ? "" : ", ", i, stats.status_codes[i]);
+      first = 0;
+    }
+  }
+  fprintf(f, "}\n");
+  fprintf(f, "}\n");
+
+  fclose(f);
+  return 1;
+}

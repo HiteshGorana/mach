@@ -5,8 +5,6 @@
 #include "url.h"
 #include <unistd.h>
 
-#define COLOR_RESET "\x1b[0m"
-#define COLOR_RED "\x1b[31m"
 
 static int should_stop(WorkerContext *ctx) {
   pthread_mutex_lock(ctx->mutex);
@@ -247,7 +245,8 @@ void attacker_run(Options *opts) {
     }
     usleep(100000);
   }
-  printf("\n");
+  if (!ui_is_quiet())
+    printf("\n");
 
   for (int i = 0; i < created_threads; i++) {
     pthread_join(threads[i], NULL);
@@ -264,6 +263,18 @@ void attacker_run(Options *opts) {
   save_run(opts->urls[0], s.total_requests, s.success, s.failed, s.avg_latency,
            s.rps);
 
+  if (opts->output_file) {
+    if (storage_write_summary(opts->output_file, opts->urls[0], s)) {
+      if (!ui_is_quiet()) {
+        ui_success("   [WROTE summary to ");
+        printf("%s]\n", opts->output_file);
+      }
+    } else {
+      ui_error("Error: could not write output file: ");
+      printf("%s\n", opts->output_file);
+    }
+  }
+
   if (opts->tag) {
     if (opts->before) {
       storage_save_tagged(opts->tag, "before", s);
@@ -279,8 +290,8 @@ void attacker_run(Options *opts) {
           double diff = s.avg_latency - before.avg_latency;
           double pct = (diff / before.avg_latency) * 100.0;
           if (pct > opts->threshold) {
-            printf("\n%s❌ REGRESSION DETECTED: %.1f%% (Threshold: %.1f%%)%s\n",
-                   COLOR_RED, pct, opts->threshold, COLOR_RESET);
+            ui_error("\n❌ REGRESSION DETECTED: ");
+            printf("%.1f%% (Threshold: %.1f%%)\n", pct, opts->threshold);
             exit(1);
           }
         }

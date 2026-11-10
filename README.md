@@ -60,6 +60,9 @@ Options:
   --after        Save this run as the target for --tag
   --result       Show the before/after comparison for --tag
   --threshold PCT Fail if average latency regresses more than PCT
+  --output FILE  Write the run summary as JSON to FILE
+  -q, --quiet    No progress bar or summary (errors still shown)
+  --no-color     Disable ANSI colors
 ```
 
 | Profile | Requests | Concurrency | Use case |
