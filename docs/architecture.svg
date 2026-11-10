@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="600" fill="#ffffff"/>
+  <text x="480" y="48" text-anchor="middle" font-size="26" font-weight="700" fill="#111827">Mach: architecture</text>
+  <text x="480" y="74" text-anchor="middle" font-size="14" fill="#6b7280">One binary, one pipeline: CLI → load generator → HTTP → stats → storage / UI</text>
+
+  <!-- Row 1: entry -->
+  <rect x="40" y="110" width="200" height="70" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="140" y="140" text-anchor="middle" font-size="16" font-weight="700" fill="#312e81">main.c</text>
+  <text x="140" y="162" text-anchor="middle" font-size="12" fill="#3730a3">CLI parsing · subcommands</text>
+
+  <rect x="300" y="110" width="200" height="70" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="400" y="140" text-anchor="middle" font-size="16" font-weight="700" fill="#312e81">attacker.c</text>
+  <text x="400" y="162" text-anchor="middle" font-size="12" fill="#3730a3">pthread workers · RPS throttle</text>
+
+  <rect x="560" y="110" width="360" height="70" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="740" y="140" text-anchor="middle" font-size="16" font-weight="700" fill="#78350f">Result array (mutex-guarded)</text>
+  <text x="740" y="162" text-anchor="middle" font-size="12" fill="#92400e">grows on demand · one record per request</text>
+
+  <line x1="240" y1="145" x2="296" y2="145" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="500" y1="145" x2="556" y2="145" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: HTTP and stats -->
+  <rect x="300" y="240" width="200" height="80" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="400" y="270" text-anchor="middle" font-size="16" font-weight="700" fill="#064e3b">http.c / http_win.c</text>
+  <text x="400" y="292" text-anchor="middle" font-size="12" fill="#065f46">sockets · OpenSSL (HTTPS)</text>
+
+  <rect x="560" y="240" width="360" height="80" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="740" y="270" text-anchor="middle" font-size="16" font-weight="700" fill="#4c1d95">stats.c + src/asm/</text>
+  <text x="740" y="292" text-anchor="middle" font-size="12" fill="#5b21b6">p50/p95/p99 · status histogram · asm: fast_sum/min/max</text>
+
+  <line x1="400" y1="180" x2="400" y2="236" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="410" y="212" font-size="11" fill="#6b7280">send / receive</text>
+  <line x1="740" y1="180" x2="740" y2="236" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="750" y="212" font-size="11" fill="#6b7280">aggregate</text>
+
+  <!-- Row 3: outputs -->
+  <rect x="40" y="400" width="250" height="90" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+  <text x="165" y="430" text-anchor="middle" font-size="16" font-weight="700" fill="#0c4a6e">storage.c</text>
+  <text x="165" y="452" text-anchor="middle" font-size="12" fill="#075985">~/.mach/history · ~/.mach/tags</text>
+  <text x="165" y="472" text-anchor="middle" font-size="12" fill="#075985">before / after regression</text>
+
+  <rect x="355" y="400" width="250" height="90" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="2"/>
+  <text x="480" y="430" text-anchor="middle" font-size="16" font-weight="700" fill="#831843">ui.c · terminal*.c</text>
+  <text x="480" y="452" text-anchor="middle" font-size="12" fill="#9d174d">summary · progress bar</text>
+  <text x="480" y="472" text-anchor="middle" font-size="12" fill="#9d174d">dashboard · --result table</text>
+
+  <rect x="670" y="400" width="250" height="90" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+  <text x="795" y="430" text-anchor="middle" font-size="16" font-weight="700" fill="#111827">updater.c</text>
+  <text x="795" y="452" text-anchor="middle" font-size="12" fill="#374151">GitHub releases API</text>
+  <text x="795" y="472" text-anchor="middle" font-size="12" fill="#374151">mach update</text>
+
+  <line x1="740" y1="320" x2="165" y2="396" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="740" y1="320" x2="480" y2="396" stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="480" y="555" text-anchor="middle" font-size="12" fill="#6b7280">Platform split: POSIX (http.c, terminal.c) vs Windows (http_win.c, terminal_win.c) · asm: fast_stats_arm64.s / fast_stats_x86.s</text>
+</svg>
