@@ -96,6 +96,8 @@ jobs:
             release/mach-macos-x86_64/mach-macos-x86_64
             release/mach-macos-arm64/mach-macos-arm64
             release/mach-windows-x86_64/mach-windows-x86_64.exe
+            scripts/install.sh
+            scripts/install.ps1
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

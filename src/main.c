@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 
   if (argc > 1 && strcmp(argv[1], "update") == 0) {
     http_init_openssl();
-    updater_run();
+    updater_run(argc > 2 && strcmp(argv[2], "--check") == 0);
     http_cleanup_openssl();
     return 0;
   }
